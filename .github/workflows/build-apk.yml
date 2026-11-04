@@ -67,13 +67,21 @@ jobs:
           sed -i 's#<uses-permission android:name="android.permission.INTERNET" />#&\n    <uses-permission android:name="android.permission.RECORD_AUDIO" />\n    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" android:maxSdkVersion="32" />\n    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="32" />#' $M
           grep -n "uses-permission" $M
 
-      - name: App icon (skipped if it fails)
+      # Plain PNG launcher icons (no adaptive-icon xml), avoids the
+      # "mipmap/ic_launcher_background not found" build error.
+      - name: App icon
         continue-on-error: true
         run: |
-          mkdir -p assets
-          cp www/icon-512.png assets/icon-only.png
-          cp www/icon-foreground.png assets/icon-foreground.png
-          npx @capacitor/assets generate --android --iconBackgroundColor '#0e8a63' --iconBackgroundColorDark '#0b1410'
+          RES=android/app/src/main/res
+          rm -rf $RES/mipmap-anydpi-v26
+          for d in mdpi:48 hdpi:72 xhdpi:96 xxhdpi:144 xxxhdpi:192; do
+            n=${d%%:*}; s=${d##*:}
+            mkdir -p $RES/mipmap-$n
+            for f in ic_launcher ic_launcher_round ic_launcher_foreground; do
+              convert www/icon-512.png -resize ${s}x${s} $RES/mipmap-$n/$f.png 2>/dev/null || cp www/icon-192.png $RES/mipmap-$n/$f.png
+            done
+          done
+          ls $RES
 
       - name: Build debug APK
         working-directory: android
