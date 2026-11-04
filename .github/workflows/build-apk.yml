@@ -40,9 +40,10 @@ jobs:
       # or if you uploaded the .zip file itself (it gets extracted here).
       - name: Web files
         run: |
-          for z in $(find . -maxdepth 2 -name '*.zip' -not -path './node_modules/*'); do
-            unzip -o -q "$z" -d _unzipped
-          done
+          while IFS= read -r -d '' z; do
+            echo "Extracting: $z"
+            unzip -o -q "$z" -d _unzipped || echo "Could not extract $z (skipped)"
+          done < <(find . -maxdepth 2 -iname '*.zip' -not -path './node_modules/*' -print0)
           IDX=$(find . -name index.html -not -path './node_modules/*' -not -path './www/*' -not -path './android/*' | head -n 1)
           if [ -z "$IDX" ]; then echo "index.html not found anywhere in the repo"; ls -R | head -50; exit 1; fi
           SRC=$(dirname "$IDX")
