@@ -102,6 +102,48 @@ jobs:
           done
           ls -R $RES | head -40
 
+      # Skip the system splash: same dark colour as the in-app loading screen,
+      # invisible icon, so the app opens straight into the loading screen.
+      - name: Seamless splash
+        run: |
+          RES=android/app/src/main/res
+          mkdir -p $RES/values $RES/drawable
+          cat > $RES/values/colors_splash.xml <<'XML'
+          <?xml version="1.0" encoding="utf-8"?>
+          <resources>
+              <color name="splash_bg">#0b1410</color>
+          </resources>
+          XML
+          cat > $RES/drawable/splash_empty.xml <<'XML'
+          <?xml version="1.0" encoding="utf-8"?>
+          <vector xmlns:android="http://schemas.android.com/apk/res/android"
+              android:width="24dp" android:height="24dp"
+              android:viewportWidth="24" android:viewportHeight="24">
+              <path android:fillColor="#00000000" android:pathData="M0,0h1v1z"/>
+          </vector>
+          XML
+          cat > /tmp/styles_fix.py <<'PY'
+          import re
+          p = "android/app/src/main/res/values/styles.xml"
+          s = open(p).read()
+          new = (
+              '<style name="AppTheme.NoActionBarLaunch" parent="Theme.SplashScreen">\n'
+              '        <item name="android:background">@color/splash_bg</item>\n'
+              '        <item name="windowSplashScreenBackground">@color/splash_bg</item>\n'
+              '        <item name="windowSplashScreenAnimatedIcon">@drawable/splash_empty</item>\n'
+              '        <item name="windowSplashScreenAnimationDuration">0</item>\n'
+              '        <item name="postSplashScreenTheme">@style/AppTheme.NoActionBar</item>\n'
+              '    </style>'
+          )
+          s2 = re.sub(r'<style name="AppTheme.NoActionBarLaunch".*?</style>', new, s, flags=re.S)
+          assert s2 != s, "launch style not found"
+          open(p, "w").write(s2)
+          PY
+          python3 /tmp/styles_fix.py
+          cat $RES/values/styles.xml
+          CJ=android/app/src/main/assets/capacitor.config.json
+          node -e "const fs=require('fs');const c=JSON.parse(fs.readFileSync('$CJ'));c.backgroundColor='#0b1410';fs.writeFileSync('$CJ',JSON.stringify(c,null,2))"
+
       - name: Build debug APK
         working-directory: android
         run: |
