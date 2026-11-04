@@ -67,21 +67,40 @@ jobs:
           sed -i 's#<uses-permission android:name="android.permission.INTERNET" />#&\n    <uses-permission android:name="android.permission.RECORD_AUDIO" />\n    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" android:maxSdkVersion="32" />\n    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="32" />#' $M
           grep -n "uses-permission" $M
 
-      # Plain PNG launcher icons (no adaptive-icon xml), avoids the
-      # "mipmap/ic_launcher_background not found" build error.
+      # Proper adaptive icon: green background + white taka symbol
       - name: App icon
         continue-on-error: true
         run: |
           RES=android/app/src/main/res
+          FG=www/icon-adaptive.png
+          [ -f "$FG" ] || FG=www/icon-foreground.png
           rm -rf $RES/mipmap-anydpi-v26
-          for d in mdpi:48 hdpi:72 xhdpi:96 xxhdpi:144 xxxhdpi:192; do
-            n=${d%%:*}; s=${d##*:}
+          rm -f $RES/mipmap-*/ic_launcher_background.png
+          for d in mdpi:48:108 hdpi:72:162 xhdpi:96:216 xxhdpi:144:324 xxxhdpi:192:432; do
+            IFS=: read n s f <<< "$d"
             mkdir -p $RES/mipmap-$n
-            for f in ic_launcher ic_launcher_round ic_launcher_foreground; do
-              convert www/icon-512.png -resize ${s}x${s} $RES/mipmap-$n/$f.png 2>/dev/null || cp www/icon-192.png $RES/mipmap-$n/$f.png
+            for x in ic_launcher ic_launcher_round; do
+              convert www/icon-512.png -resize ${s}x${s} $RES/mipmap-$n/$x.png 2>/dev/null || cp www/icon-192.png $RES/mipmap-$n/$x.png
             done
+            convert $FG -resize ${f}x${f} $RES/mipmap-$n/ic_launcher_foreground.png 2>/dev/null || cp $FG $RES/mipmap-$n/ic_launcher_foreground.png
           done
-          ls $RES
+          mkdir -p $RES/mipmap-anydpi-v26 $RES/values
+          cat > $RES/values/ic_launcher_background.xml <<'XML'
+          <?xml version="1.0" encoding="utf-8"?>
+          <resources>
+              <color name="ic_launcher_background">#0e8a63</color>
+          </resources>
+          XML
+          for x in ic_launcher ic_launcher_round; do
+            cat > $RES/mipmap-anydpi-v26/$x.xml <<'XML'
+          <?xml version="1.0" encoding="utf-8"?>
+          <adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
+              <background android:drawable="@color/ic_launcher_background"/>
+              <foreground android:drawable="@mipmap/ic_launcher_foreground"/>
+          </adaptive-icon>
+          XML
+          done
+          ls -R $RES | head -40
 
       - name: Build debug APK
         working-directory: android
